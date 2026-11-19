@@ -1,0 +1,4 @@
+# Normaliza finais de linha: evita diffs falsos entre Windows e Linux/macOS
+* text=auto eol=lf
+*.png binary
+*.ico binary

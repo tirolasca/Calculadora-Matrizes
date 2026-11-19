@@ -1,0 +1,7 @@
+# Dependências de execução (alternativa a: pip install ".[web]")
+# Este arquivo também é o que o Streamlit Community Cloud instala (inclui o Streamlit).
+# tkinter (janela) já vem com o Python no Windows/macOS. No Linux: sudo apt install python3-tk
+sympy>=1.15.0
+rich>=15.0.0
+matplotlib>=3.11.2
+streamlit>=1.40

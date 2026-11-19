@@ -1,0 +1,65 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "calculadora-matrizes"
+version = "1.0.0"
+description = "Calculadora de matrizes e sistemas lineares com terminal, janela (tkinter) e plataforma web educacional (Streamlit)."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+keywords = ["matrizes", "álgebra linear", "sistemas lineares", "tkinter", "streamlit", "sympy"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Education",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
+dependencies = [
+    "sympy>=1.15.0",
+    "rich>=15.0.0",
+    "matplotlib>=3.11.2",
+]
+
+[project.optional-dependencies]
+web = ["streamlit>=1.40"]
+dev = ["pytest>=8", "ruff>=0.6", "mypy>=1.10"]
+
+[project.scripts]
+calculadora-matrizes = "matrizes.cli:main"
+calculadora-matrizes-web = "matrizes.web.__main__:main"
+
+[project.gui-scripts]
+calculadora-matrizes-gui = "matrizes.gui:main"
+
+[tool.setuptools.packages.find]
+include = ["matrizes*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = [
+    "E741",  # nomes como 'l' são comuns em álgebra linear
+    "B008",
+    "RUF001",
+]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+check_untyped_defs = false
+warn_unused_ignores = true
+files = ["matrizes/web"]
+
+[tool.ruff.lint.per-file-ignores]
+# textos explicativos longos em português (conteúdo educacional)
+"matrizes/web/**" = ["E501"]
+"tests/**" = ["E501"]
