@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "calculadora-matrizes"
-version = "1.0.0"
+version = "1.1.0"
 description = "Calculadora de matrizes e sistemas lineares com terminal, janela (tkinter) e plataforma web educacional (Streamlit)."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -34,7 +34,7 @@ web = [
 ]
 dev = [
     "pytest>=9.2.0",
-    "ruff>=0.17.5",
+    "ruff>=0.17.6",
     "mypy>=2.4.1",
 ]
 

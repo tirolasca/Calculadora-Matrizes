@@ -5,6 +5,7 @@ from .. import __version__
 NOME_APP = "Calculadora de Matrizes"
 SUBTITULO = "Plataforma de Álgebra Linear: calcule, experimente, visualize e aprenda"
 VERSAO = __version__
+REPO_URL = "https://github.com/tirolasca/Calculadora-Matrizes"
 
 MAX_DIM = 8  # dimensão máxima de matrizes no editor
 LIMITE_HISTORICO = 200
@@ -14,6 +15,7 @@ ROTULOS_TEMA = {"sistema": "Automático (sistema)", "claro": "Claro", "escuro": 
 
 PREFERENCIAS_PADRAO = {
     "tema": "sistema",
+    "animacoes": True,  # animações e efeitos de entrada (respeita prefers-reduced-motion)
     "aproximacao": True,  # mostrar valor decimal ao lado de resultados exatos
     "casas": 4,  # casas decimais das aproximações
     "mostrar_passos": True,  # abrir o passo a passo junto do resultado

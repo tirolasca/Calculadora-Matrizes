@@ -36,7 +36,13 @@ def renderizar() -> None:
         "Método", list(ROTULOS), format_func=ROTULOS.get, horizontal=True, key="sis:metodo"
     )
 
-    if st.button("Resolver e classificar", type="primary", icon=":material/rule:"):
+    if st.button(
+        "Resolver e classificar",
+        type="primary",
+        icon=":material/rule:",
+        shortcut="Ctrl+Enter",
+        help="Atalho: Ctrl+Enter",
+    ):
         st.session_state.pop("res:sis", None)
         if M is None:
             st.error("Corrija os elementos inválidos antes de resolver.")
@@ -50,11 +56,12 @@ def renderizar() -> None:
                         "Sistemas com parâmetros simbólicos não são suportados; use números."
                     )
                 metodos = ["gauss", "cramer", "inversa"] if metodo == "todos" else [metodo]
-                tipo, linhas = nucleo.relatorio_sistema(A, b, metodo)
-                solucoes = {}
-                for m in metodos:
-                    _, _, sol, aviso = cs.executar_sistema(A, b, m)
-                    solucoes[m] = (sol, aviso)
+                with st.spinner("Resolvendo o sistema…"):
+                    tipo, linhas = nucleo.relatorio_sistema(A, b, metodo)
+                    solucoes = {}
+                    for m in metodos:
+                        _, _, sol, aviso = cs.executar_sistema(A, b, m)
+                        solucoes[m] = (sol, aviso)
             except ValueError as e:
                 st.error(str(e), icon=":material/error:")
                 est.historico.adicionar(

@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import re
+
 import streamlit as st
 
 from ..services import calc_service as cs
+from ..services import matrix_service as ms
+from ..services import step_service as ss
 from ..state import obter
 from . import math_renderer as mr
 from .matrix_editor import carregar_no_editor, editor_matriz
@@ -23,6 +27,38 @@ def _guardar(ex: cs.Execucao, chave: str, nome: str, valor) -> None:
         st.toast(f"Resultado salvo como {nome}.", icon=":material/check:")
     except ValueError as e:
         st.toast(str(e), icon=":material/error:")
+
+
+def _slug(rotulo: str) -> str:
+    """Nome de arquivo seguro a partir do rótulo de um resultado."""
+    return re.sub(r"[^A-Za-z0-9]+", "_", rotulo).strip("_").lower() or "matriz"
+
+
+def _exportar(chave: str, matrizes: list[tuple[str, object]]) -> None:
+    """Copiar (LaTeX) ou baixar (CSV e .tex) cada matriz do resultado."""
+    with st.expander("Copiar ou exportar", icon=":material/ios_share:"):
+        for idx, (rot, val) in enumerate(matrizes):
+            latex = ss.latex_matriz(val)
+            st.markdown(f"**{rot}**")
+            st.code(latex, language="latex")  # o bloco já traz o botão de copiar
+            c1, c2, _ = st.columns([1, 1, 2])
+            base = _slug(rot)
+            c1.download_button(
+                "Baixar CSV",
+                ms.matriz_para_csv(val),
+                f"{base}.csv",
+                "text/csv",
+                key=f"{chave}:csv{idx}",
+                icon=":material/table:",
+            )
+            c2.download_button(
+                "Baixar LaTeX",
+                latex + "\n",
+                f"{base}.tex",
+                "text/x-tex",
+                key=f"{chave}:tex{idx}",
+                icon=":material/code:",
+            )
 
 
 def painel(
@@ -61,13 +97,21 @@ def painel(
         )
 
     chave_res = f"res:{chave}"
-    if st.button("Calcular", type="primary", key=f"{chave}:calc", icon=":material/calculate:"):
+    if st.button(
+        "Calcular",
+        type="primary",
+        key=f"{chave}:calc",
+        icon=":material/calculate:",
+        shortcut="Ctrl+Enter",
+        help="Atalho: Ctrl+Enter",
+    ):
         st.session_state.pop(chave_res, None)
         if any(m is None for m in mats):
             st.error("Corrija os elementos inválidos antes de calcular.")
         else:
             try:
-                ex = cs.executar(nome, mats, param, metodo=metodo)
+                with st.spinner("Calculando…"):
+                    ex = cs.executar(nome, mats, param, metodo=metodo)
             except ValueError as e:
                 st.error(str(e), icon=":material/error:")
                 est.historico.adicionar(
@@ -105,6 +149,8 @@ def painel(
                     on_click=carregar_no_editor,
                     args=(f"{chave}:A", val),
                 )
+    if matrizes:
+        _exportar(chave, matrizes)
     if atual.solucao is not None and est.pref("mostrar_passos"):
         st.divider()
         st.subheader("Passo a passo")

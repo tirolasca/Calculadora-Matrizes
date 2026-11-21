@@ -3,6 +3,8 @@ predefinidas, duplicar, salvar/carregar e rascunho que sobrevive à troca de pá
 
 from __future__ import annotations
 
+import re
+
 import streamlit as st
 import sympy as sp
 
@@ -26,12 +28,22 @@ def _grade(
     return [["0"] * dims[1] for _ in range(dims[0])]
 
 
-def carregar_no_editor(chave: str, M: sp.Matrix) -> None:
-    """Coloca M no editor `chave` (use em callbacks de botão)."""
-    obter().definir_rascunho(chave, ms.matriz_para_texto(M))
+def carregar_grade_no_editor(chave: str, grade: list[list[str]]) -> None:
+    """Coloca no editor `chave` os textos de `grade` exatamente como estão."""
+    obter().definir_rascunho(chave, grade)
     st.session_state[f"_v:{chave}"] = _versao(chave) + 1
     for k in (f"{chave}:m", f"{chave}:n"):
         st.session_state.pop(k, None)
+
+
+def carregar_no_editor(chave: str, M: sp.Matrix) -> None:
+    """Coloca M no editor `chave` (use em callbacks de botão)."""
+    carregar_grade_no_editor(chave, ms.matriz_para_texto(M))
+
+
+def _classe_grade(chave: str) -> str:
+    """Chave de container (vira a classe CSS ``st-key-…``) que ativa os colchetes da grade."""
+    return "mxgrid_" + re.sub(r"\W", "_", chave)
 
 
 def _redimensionar(g: list[list[str]], m: int, n: int) -> list[list[str]]:
@@ -66,21 +78,23 @@ def editor_matriz(
     g = _redimensionar(g, m, n)
 
     nova = []
-    for i in range(m):
-        cols = st.columns(n)
-        linha = []
-        for j in range(n):
-            linha.append(
-                cols[j].text_input(
-                    f"{titulo} [{i + 1},{j + 1}]",
-                    value=g[i][j],
-                    key=f"{chave}:{ver}:{i}:{j}",
-                    label_visibility="collapsed",
-                    placeholder=f"a{i + 1}{j + 1}",
+    with st.container(key=_classe_grade(chave)):
+        for i in range(m):
+            cols = st.columns(n)
+            linha = []
+            for j in range(n):
+                linha.append(
+                    cols[j].text_input(
+                        f"{titulo} [{i + 1},{j + 1}]",
+                        value=g[i][j],
+                        key=f"{chave}:{ver}:{i}:{j}",
+                        label_visibility="collapsed",
+                        placeholder=f"a{i + 1}{j + 1}",
+                    )
                 )
-            )
-        nova.append(linha)
+            nova.append(linha)
     est.definir_rascunho(chave, nova)
+    st.caption(f"{m}×{n}")
 
     if ferramentas:
         _ferramentas(chave, titulo, m, n, quadrada)
@@ -149,3 +163,56 @@ def _ferramentas(chave: str, titulo: str, m: int, n: int, quadrada: bool) -> Non
                 st.toast(str(err), icon=":material/error:")
 
         e.button("Duplicar", key=f"{chave}:dup", on_click=duplicar)
+
+        def transformar(como: str):
+            """Aplica Aᵀ ou −A à matriz que está digitada (se estiver válida)."""
+
+            def acao():
+                try:
+                    M = ms.matriz_de_texto(est.rascunho(chave) or [])
+                except (ms.EntradaInvalida, ValueError) as err:
+                    st.toast(str(err), icon=":material/error:")
+                    return
+                carregar_no_editor(chave, M.T if como == "transpor" else -M)
+
+            return acao
+
+        f, g2, _ = st.columns(3)
+        f.button(
+            "Transpor (Aᵀ)",
+            key=f"{chave}:trp",
+            on_click=transformar("transpor"),
+            icon=":material/swap_horiz:",
+        )
+        g2.button(
+            "Trocar sinais (−A)",
+            key=f"{chave}:neg",
+            on_click=transformar("negar"),
+            icon=":material/exposure_neg_1:",
+        )
+
+        st.text_area(
+            "Colar matriz",
+            key=f"{chave}:colar",
+            height=80,
+            placeholder="[[1, 2], [3, 4]]   ou   1 2; 3 4   ou uma linha por linha",
+            help="Colunas separadas por espaço ou vírgula; linhas por ponto e vírgula ou quebra "
+            "de linha. Aceita frações e expressões, como 1/2 ou sqrt(2).",
+        )
+
+        def colar():
+            try:
+                grade = ms.grade_de_texto(st.session_state.get(f"{chave}:colar", ""), MAX_DIM)
+                ms.matriz_de_texto(grade)  # valida cada célula antes de carregar
+                if quadrada and len(grade) != len(grade[0]):
+                    raise ValueError("Esta matriz precisa ser quadrada.")
+            except (ms.EntradaInvalida, ValueError) as err:
+                st.toast(str(err), icon=":material/error:")
+                return
+            carregar_grade_no_editor(chave, grade)
+            st.toast(
+                f"Matriz {len(grade)}×{len(grade[0])} carregada do texto.",
+                icon=":material/content_paste:",
+            )
+
+        st.button("Carregar do texto", key=f"{chave}:colbtn", on_click=colar)

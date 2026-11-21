@@ -157,3 +157,33 @@ def test_css_forcado_inclui_cores_nativas_e_o_nao_forcado_nao(nome):
 def test_estilo_grafico_tem_as_chaves_esperadas():
     for nome in ("claro", "escuro"):
         assert set(theme.estilo_grafico(TEMAS[nome])) == {"fundo", "texto", "grade", "eixos"}
+
+
+@pytest.mark.parametrize("nome", ["claro", "escuro"])
+def test_css_forcado_cobre_os_widgets_do_streamlit_atual(nome):
+    """Regressão do modo escuro: contêineres dos campos, alertas, uploader e lista do seletor."""
+    p = TEMAS[nome]
+    css = theme.gerar_css(p, True)
+    for seletor in (
+        'data-testid="stTextInputRootElement"',
+        'data-testid="stNumberInputContainer"',
+        'data-testid="stTextAreaRootElement"',
+        'data-testid="stAlertContainer"',
+        'data-testid="stAlertContentSuccess"',
+        'data-testid="stFileUploaderDropzone"',
+        'data-testid="stSelectboxVirtualDropdown"',
+        'data-testid^="stBaseButton-secondary"',
+        'data-testid="stRadioOption"',
+    ):
+        assert seletor in css, seletor
+    assert p["campo"] in css and p["texto_bg"] in css and p["ok"] in css
+    # o modo "sistema" (não forçado) não pode pintar widgets nativos
+    livre = theme.gerar_css(p, False)
+    assert 'data-testid="stAlertContainer"' not in livre
+    assert 'data-testid="stSelectboxVirtualDropdown"' not in livre
+
+
+def test_botao_primario_tem_o_mesmo_visual_nos_dois_temas():
+    for nome in ("claro", "escuro"):
+        css = theme.gerar_css(TEMAS[nome], True)
+        assert 'stBaseButton-primary"]' in css and "#4f46e5" in css

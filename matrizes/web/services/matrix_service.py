@@ -162,6 +162,59 @@ def nome_valido(nome: str) -> bool:
     return bool(NOME_RE.match(nome))
 
 
+MAX_COLAR = 2000  # caracteres aceitos ao colar uma matriz
+_COLCHETES_RE = re.compile(r"\[\s*(\[[^\[\]]*\]\s*,?\s*)+\]|\[[^\[\]]*\]")
+
+
+def _celulas_da_linha(linha: str, colchetes: bool) -> list[str]:
+    linha = linha.strip().strip("|").strip()
+    if colchetes and "," in linha:
+        partes = linha.split(",")
+    else:
+        partes = linha.split()
+        if len(partes) == 1 and "," in partes[0]:  # linha estilo CSV: 1,2,3
+            partes = partes[0].split(",")
+    return [p.strip() for p in partes if p.strip()]
+
+
+def grade_de_texto(texto: str, max_dim: int = 8) -> list[list[str]]:
+    """Interpreta uma matriz colada como grade de textos (as células ainda não foram validadas).
+
+    Aceita ``[[1, 2], [3, 4]]``, ``1 2; 3 4`` e uma linha por linha (separando colunas por espaço,
+    tabulação ou vírgula). Lança ``ValueError`` em português se o formato não fizer sentido.
+    """
+    t = str(texto).strip()
+    if not t:
+        raise ValueError("Cole ou digite uma matriz, ex.: [[1, 2], [3, 4]] ou 1 2; 3 4.")
+    if len(t) > MAX_COLAR:
+        raise ValueError(f"Texto longo demais (máximo {MAX_COLAR} caracteres).")
+    if t.startswith("["):
+        if not _COLCHETES_RE.fullmatch(t):
+            raise ValueError("Colchetes mal formados. Ex.: [[1, 2], [3, 4]].")
+        brutas = re.findall(r"\[([^\[\]]*)\]", t)
+        grade = [_celulas_da_linha(lin, True) for lin in brutas]
+    else:
+        brutas = [lin for lin in re.split(r"[;\n]", t) if lin.strip()]
+        grade = [_celulas_da_linha(lin, False) for lin in brutas]
+    grade = [lin for lin in grade if lin]
+    if not grade:
+        raise ValueError("Nenhum elemento encontrado no texto.")
+    larguras = {len(lin) for lin in grade}
+    if len(larguras) > 1:
+        detalhe = ", ".join(f"linha {i + 1}: {len(lin)}" for i, lin in enumerate(grade[:6]))
+        raise ValueError(f"As linhas têm quantidades diferentes de elementos ({detalhe}).")
+    if len(grade) > max_dim or len(grade[0]) > max_dim:
+        raise ValueError(
+            f"A matriz colada é {len(grade)}×{len(grade[0])}; o máximo é {max_dim}×{max_dim}."
+        )
+    return grade
+
+
+def matriz_para_csv(M: sp.Matrix) -> str:
+    """Matriz como CSV (uma linha por linha, vírgula entre colunas) para exportar."""
+    return "\n".join(",".join(linha) for linha in matriz_para_texto(M)) + "\n"
+
+
 # ----------------------------------------------------------------------
 # Matrizes predefinidas
 # ----------------------------------------------------------------------
@@ -202,6 +255,18 @@ PREDEFINIDAS = {
     "Hilbert": (
         "aᵢⱼ = 1/(i+j−1): frações exatas",
         _fabrica(lambda i, j: sp.Rational(1, i + j + 1)),
+    ),
+    "Vandermonde (1, 2, 3, …)": (
+        "aᵢⱼ = i^(j−1): linhas de potências",
+        _fabrica(lambda i, j: (i + 1) ** j),
+    ),
+    "Pascal": (
+        "binomiais C(i+j−2, i−1); simétrica e invertível",
+        _fabrica(lambda i, j: sp.binomial(i + j, i)),
+    ),
+    "Anti-identidade (permutação)": (
+        "1 na antidiagonal, 0 fora dela",
+        lambda m, n, semente=0: sp.Matrix(m, n, lambda i, j: 1 if i + j == n - 1 else 0),
     ),
     "Aleatória (inteiros de −9 a 9)": ("sorteio com semente fixa", _aleatoria),
 }

@@ -375,6 +375,143 @@ def f_diagonalizacao(A):
     ]
 
 
+# ----------------------------------------------------------------------
+# Produtos especiais, pseudo-inversa, espaços fundamentais e normas
+# ----------------------------------------------------------------------
+LIMITE_KRONECKER = 12  # linhas e colunas máximas do resultado de A ⊗ B
+
+
+def _so_numeros(A, o_que):
+    if tem_simbolos(A):
+        raise ValueError(f"{o_que}: use apenas números (parâmetros simbólicos não são aceitos).")
+
+
+def f_hadamard(A, B):
+    """Produto de Hadamard (elemento a elemento): (A ∘ B)ᵢⱼ = aᵢⱼ · bᵢⱼ."""
+    if A.shape != B.shape:
+        raise ValueError("Produto de Hadamard: as matrizes precisam ter as mesmas dimensões.")
+    return [("A ∘ B", A.multiply_elementwise(B))]
+
+
+def f_kronecker(A, B):
+    """Produto de Kronecker: cada aᵢⱼ é substituído pelo bloco aᵢⱼ · B."""
+    m, n = A.rows * B.rows, A.cols * B.cols
+    if m > LIMITE_KRONECKER or n > LIMITE_KRONECKER:
+        raise ValueError(
+            f"Produto de Kronecker: o resultado seria {m}×{n}; "
+            f"use no máximo {LIMITE_KRONECKER}×{LIMITE_KRONECKER}."
+        )
+    return [("A ⊗ B", sp.kronecker_product(A, B)), ("Dimensão:", f"{m}×{n}")]
+
+
+def f_pseudoinversa(A):
+    """Pseudo-inversa de Moore-Penrose A⁺ (existe para qualquer matriz)."""
+    _so_numeros(A, "Pseudo-inversa")
+    try:
+        P = A.pinv()
+    except Exception as e:
+        raise ValueError("Pseudo-inversa: não foi possível calcular para esta matriz.") from e
+    AP, PA = A * P, P * A
+    ok = (
+        _igual(AP * A, A) is True
+        and _igual(PA * P, P) is True
+        and _igual(AP, AP.T) is True
+        and _igual(PA, PA.T) is True
+    )
+    return [
+        ("A⁺ (Moore-Penrose)", P),
+        (
+            "Verificação:",
+            "A·A⁺·A = A, A⁺·A·A⁺ = A⁺ e A·A⁺, A⁺·A simétricas ✓"
+            if ok
+            else "as quatro condições de Moore-Penrose não foram confirmadas",
+        ),
+    ]
+
+
+def _juntar(vetores, como_linhas=False):
+    """Base como matriz: vetores nas colunas (ou nas linhas)."""
+    if not vetores:
+        return None
+    if como_linhas:
+        return sp.Matrix.vstack(*vetores)
+    return sp.Matrix.hstack(*vetores)
+
+
+def f_espacos(A):
+    """Bases dos quatro espaços fundamentais associados a A (via escalonamento)."""
+    _so_numeros(A, "Espaços fundamentais")
+    posto = A.rank()
+    col = _juntar(A.columnspace())
+    lin = _juntar(A.rowspace(), como_linhas=True)
+    nuc = _juntar(A.nullspace())
+    nul_esq = _juntar(A.T.nullspace())
+    res = [
+        ("posto(A) =", str(posto)),
+        ("nulidade(A) =", str(A.cols - posto)),
+    ]
+    for rotulo, base, vazio in (
+        ("Base de Col(A) — espaço-coluna (vetores nas colunas)", col, "Col(A) = {0}"),
+        ("Base de Lin(A) — espaço-linha (vetores nas linhas)", lin, "Lin(A) = {0}"),
+        ("Base de N(A) — núcleo (vetores nas colunas)", nuc, "N(A) = {0}: só o vetor nulo"),
+        (
+            "Base de N(Aᵀ) — núcleo à esquerda (vetores nas colunas)",
+            nul_esq,
+            "N(Aᵀ) = {0}: só o vetor nulo",
+        ),
+    ):
+        res.append((rotulo, base) if base is not None else ("Obs.:", vazio))
+    ok = nuc is None or _zero(A * nuc) is True
+    res.append(
+        (
+            "Verificação:",
+            f"posto + nulidade = {A.cols} (nº de colunas) ✓"
+            + ("; A·N(A) = 0 ✓" if ok else "; A·N(A) ≠ 0"),
+        )
+    )
+    return res
+
+
+def _valores_singulares(A):
+    """Valores singulares numéricos em ordem decrescente (via mpmath)."""
+    import mpmath
+
+    mpmath.mp.dps = 30
+    M = mpmath.matrix(A.evalf(30).tolist())
+    real = all(x.is_real for x in A)
+    s = mpmath.svd_r(M, compute_uv=False) if real else mpmath.svd_c(M, compute_uv=False)
+    vals = sorted((float(x) for x in s), reverse=True)
+    corte = 1e-15 * max(vals[0], 1.0)  # ruído numérico → 0 exato
+    return [0.0 if v < corte else v for v in vals]
+
+
+def f_normas(A):
+    """Normas de matriz (Frobenius, 1, ∞, 2) e números de condição (matrizes quadradas)."""
+    _so_numeros(A, "Normas")
+    sv = _valores_singulares(A)
+    res = [
+        ("norma de Frobenius =", str(A.norm())),
+        ("norma-1 (maior soma de colunas) =", str(A.norm(1))),
+        ("norma-infinito (maior soma de linhas) =", str(A.norm(sp.oo))),
+        ("norma-2 (espectral) ≈", f"{sv[0]:.6g}"),
+        ("Valores singulares ≈", ", ".join(f"{x:.6g}" for x in sv)),
+    ]
+    if A.is_square:
+        if A.det() == 0:
+            res.append(("Número de condição:", "∞ (matriz singular: não possui inversa)"))
+        else:
+            res.append(("cond-1(A) =", str(A.norm(1) * A.inv().norm(1))))
+            res.append(("cond-2(A) ≈", f"{sv[0] / sv[-1]:.6g}"))
+            res.append(
+                (
+                    "Obs.:",
+                    "cond-1 = ‖A‖₁·‖A⁻¹‖₁ e cond-2 = σmáx/σmín; "
+                    "quanto maior, mais sensível a erros.",
+                )
+            )
+    return res
+
+
 # Geradores (não dependem de uma matriz existente): usados pelas matrizes predefinidas da web.
 def matriz_identidade(n):
     return sp.eye(n)
@@ -584,4 +721,9 @@ OPERACOES = [
     Operacao("23", "Propriedades", "Decomposição QR", f_qr, 1, None),
     Operacao("24", "Propriedades", "Decomposição de Cholesky", f_cholesky, 1, None),
     Operacao("25", "Propriedades", "Diagonalização (A = P·D·P⁻¹)", f_diagonalizacao, 1, None),
+    Operacao("26", "Operações", "Produto de Hadamard (A ∘ B)", f_hadamard, 2, None),
+    Operacao("27", "Operações", "Produto de Kronecker (A ⊗ B)", f_kronecker, 2, None),
+    Operacao("28", "Operações", "Pseudo-inversa (A⁺)", f_pseudoinversa, 1, None),
+    Operacao("29", "Propriedades", "Espaços fundamentais", f_espacos, 1, None),
+    Operacao("30", "Propriedades", "Normas e número de condição", f_normas, 1, None),
 ]

@@ -22,6 +22,15 @@ def renderizar() -> None:
     if tema != p["tema"]:
         p["tema"] = tema
         st.rerun()  # reaplica o CSS do tema já nesta interação
+    animacoes = st.toggle(
+        "Animações e efeitos visuais",
+        p["animacoes"],
+        help="Desligue para uma interface estática. Quem já pede “reduzir movimento” no sistema "
+        "operacional não vê animações de qualquer forma.",
+    )
+    if animacoes != p["animacoes"]:
+        p["animacoes"] = animacoes
+        st.rerun()  # reaplica o CSS já nesta interação
     p["aproximacao"] = st.toggle(
         "Mostrar aproximação decimal de resultados exatos", p["aproximacao"]
     )
